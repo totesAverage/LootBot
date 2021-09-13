@@ -106,8 +106,18 @@ class music(commands.Cog, discordSuperUtils.CogManager.Cog, name="music"):
 
     @commands.command(aliases=['next'], help='This command will skip to the next item on the queue')
     async def skip(self, ctx, index: int= None):
-      if self.MusicManager.skip(ctx, index):
+      if await self.MusicManager.skip(ctx, index):
         await ctx.send('Skipped! ⏭️')
+        
+    @commands.command(aliases=['c'], help='This clears the queue')
+    async def clear(self, ctx):
+      if await self.MusicManager.clear_queue(ctx):
+        await ctx.send('Cleared! ')
+
+    @commands.command(help='Remove a song from the queue')
+    async def remove(self, ctx, index: int):
+      if await self.MusicManager.queue_remove(ctx, index):
+        await ctx.send(f'{index} removed from queue!')
 
     @commands.command(help='Displays the queue')
     async def queue(self,ctx):
