@@ -4,12 +4,13 @@ import discordSuperUtils
 from discord.ext import commands
 from discordSuperUtils import MusicManager, PageManager
 
-
+# Initialize the cog
 class music(commands.Cog, discordSuperUtils.CogManager.Cog, name="music"):
     def __init__(self, bot):
       self.bot = bot
       self.client_secret = os.getenv('lootbot_secret')
       self.client_id = os.getenv('lootbot_id')
+      # Client_secret and Client_id refer to your spotify developers ID and secret. If you wish to disable spotify, set spotify_support=False
       self.MusicManager = MusicManager(self.bot,client_id=self.client_id,client_secret=self.client_secret, spotify_support=True)
       super().__init__()
     
@@ -18,6 +19,7 @@ class music(commands.Cog, discordSuperUtils.CogManager.Cog, name="music"):
     async def on_music_error(self, ctx, error):
       raise ValueError("LootBot doesn't understand!")
     
+    # Displays the current music that is being played
     @discordSuperUtils.CogManager.event(discordSuperUtils.MusicManager)
     async def on_play(self, ctx, player):
       await ctx.send(f"Now playing: {player}")
