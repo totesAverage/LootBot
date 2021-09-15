@@ -108,7 +108,7 @@ class music(commands.Cog, discordSuperUtils.CogManager.Cog, name="music"):
 
     @commands.command(aliases=['c'], help='This clears the queue')
     async def clear(self, ctx):
-      if await self.MusicManager.clear_queue(ctx):
+      if await self.MusicManager.get_queue(ctx).clear():
         await ctx.send('Cleared! ', delete_after=10.0)
 
     @commands.command(help='Remove a song from the queue')
