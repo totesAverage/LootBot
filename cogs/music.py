@@ -2,7 +2,7 @@ import discord
 import os
 import discordSuperUtils
 from discord.ext import commands
-from discordSuperUtils import MusicManager, PageManager
+from discordSuperUtils import MusicManager, PageManager, QueueManager
 
 # Initializes the cog
 class music(commands.Cog, discordSuperUtils.CogManager.Cog, name="music"):
@@ -11,10 +11,10 @@ class music(commands.Cog, discordSuperUtils.CogManager.Cog, name="music"):
       self.bot = bot
       self.client_secret = os.getenv('lootbot_secret')
       self.client_id = os.getenv('lootbot_id')
-      # Client id and Client secret refer to your spotify developer ID and secret. Enable spotify_support to true if you wish for the bot to be able to find spotify tracks.
+      # The client secret and client_id are from spotify developers. Enable spotify support to true if you want to use spotify
       self.MusicManager = MusicManager(self.bot,client_id=self.client_id,client_secret=self.client_secret, spotify_support=True)
       super().__init__()
-
+      
     @discordSuperUtils.CogManager.event(discordSuperUtils.MusicManager)
     async def on_play(self, ctx, player):
       await ctx.send(f"Now playing: {player}", delete_after=15.0)
@@ -29,10 +29,14 @@ class music(commands.Cog, discordSuperUtils.CogManager.Cog, name="music"):
       print(f"LootBot has left {ctx} due to inactivity..")
 
     
-    @commands.command(aliases=['dc'], help='This command will disconnect LootBot from the voice channel')
+    @commands.command(aliases=['dc','disconnect'], help='This command will disconnect LootBot from the voice channel')
     async def leave(self, ctx):
-      if await self.MusicManager.leave(ctx):
+      try:
         await music.clear(self, ctx)
+      except:
+        await self.MusicManager.leave(ctx)
+        return
+      if await self.MusicManager.leave(ctx):
         await ctx.send("LootBot has left the voice channel!", delete_after=10.0)
       else:
         await ctx.send("LootBot isn't in the voice channel!", delete_after=10.0)
@@ -48,18 +52,18 @@ class music(commands.Cog, discordSuperUtils.CogManager.Cog, name="music"):
 
     @commands.command(aliases=['p'], help='This command will make LootBot play music')
     async def play(self, ctx, *, query: str):
-      await music.join(self, ctx)
-      async with ctx.typing():
-        player = await self.MusicManager.create_player(query)
-      
-      if player:
-        await self.MusicManager.queue_add(players=player, ctx=ctx)
+      if not ctx.voice_client or not ctx.voice_client.is_connected():
+        await self.MusicManager.join(ctx)
 
-        if not await self.MusicManager.play(ctx):
-          await ctx.send('Added to music queue!', delete_after=5.0)
-        
+      async with ctx.typing():
+        players = await self.MusicManager.create_player(query, ctx.author)
+
+      if players:
+        if await self.MusicManager.queue_add(players=players, ctx=ctx) and not await self.MusicManager.play(ctx):
+          await ctx.send("Music added to the queue!")
+
       else:
-        await ctx.send("Sorry I can't find it", delete_after=20.0)
+        await ctx.send("I'm sorry I can't find it")
     
     @commands.command(aliases=['stop'], help='This command will make LootBot stop playing music')
     async def pause(self, ctx):
@@ -108,7 +112,7 @@ class music(commands.Cog, discordSuperUtils.CogManager.Cog, name="music"):
 
     @commands.command(aliases=['c'], help='This clears the queue')
     async def clear(self, ctx):
-      if await self.MusicManager.get_queue(ctx).clear():
+      if (await self.MusicManager.get_queue(ctx)).clear():
         await ctx.send('Cleared! ', delete_after=10.0)
 
     @commands.command(help='Remove a song from the queue')
@@ -116,16 +120,26 @@ class music(commands.Cog, discordSuperUtils.CogManager.Cog, name="music"):
       if await self.MusicManager.queue_remove(ctx, index):
         await ctx.send(f'{index} removed from queue!', delete_after=10.0)
 
+    @commands.command(aliases=['randomize'], help='Shuffles the queue')
+    async def shuffle(self, ctx):
+      if await self.MusicManager.shuffle(ctx):
+        await ctx.send('Shuffled! ', delete_after=10.0)
+
     @commands.command(help='Displays the queue')
     async def queue(self,ctx):
-      embeds = discordSuperUtils.generate_embeds(await self.MusicManager.get_queue(ctx),
-         "Queue",
-          f"Now Playing: {await self.MusicManager.now_playing(ctx)}",
-          25,
-          string_format="Title: {}")
+        formatted_queue = [
+            f"Title: '{x.title}\nRequester: {x.requester.mention}" for x in (await self.MusicManager.get_queue(ctx)).queue
+        ]
 
-      page_manager = PageManager(ctx, embeds, public=True)
-      await page_manager.run()
+        embeds = discordSuperUtils.generate_embeds(formatted_queue,
+           "Queue",
+            f"Now Playing: {await self.MusicManager.now_playing(ctx)}",
+           25,
+           string_format="{}")
+
+        page_manager = discordSuperUtils.PageManager(ctx, embeds, public=True)
+
+        await page_manager.run()
 
     @commands.command(help='Displays the songs played')
     async def history(self, ctx):
